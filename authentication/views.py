@@ -1,7 +1,5 @@
 import os
 
-import boto3
-from botocore.config import Config
 from django.template.loader import render_to_string
 from django.utils.encoding import smart_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -11,20 +9,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from main_.permissions import IsOwnerOrReadOnly
-from main_.viewset import ModelViewSetIndividual
-from authentication.models import TokenWithEx, User, UserKindModel
+from authentication.models import User
 from authentication.serializers import LoginSerializer, LogoutSerializer, UserInfoSer, RegisterSerializer, \
     ChangePasswordSer, ResetPasswordEmailRequestSerializer, UserKindSer, \
     SetNewPasswordSerializer, AskForVerifyWhatsappSer, CheckOTPSer
 from rest_framework.response import Response
 from django.utils.translation import gettext_lazy as _
-from dotenv import load_dotenv
-
-from photographer.settings import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_REGION_NAME, AWS_S3_ENDPOINT_URL, \
-    AWS_STORAGE_BUCKET_NAME
-from structure.models import CategoryModel, ProjectFilesModel
-from structure.serializers import ProjectFilesSerializer
 from . import Utils
 
 load_dotenv()
@@ -225,11 +215,7 @@ class GoogleSocialAuthView(generics.GenericAPIView):
         )
 
 
-class UserKindView(ModelViewSetIndividual):
-    queryset = UserKindModel.objects.all()
-    serializer_class = UserKindSer
-    permission_classes = [IsOwnerOrReadOnly]
-    # http_method_names = ['get']
+
 
 
 class AskForVerifyWhatsappView(generics.GenericAPIView):
@@ -271,69 +257,4 @@ class AskForVerifyWhatsappView(generics.GenericAPIView):
             )
 
 
-class GeneratePresignedUrl(APIView):
-    # permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-            config=Config(region_name=AWS_S3_REGION_NAME),
-            endpoint_url=AWS_S3_ENDPOINT_URL
-        )
-
-        bucket_name = AWS_STORAGE_BUCKET_NAME
-        object_name = request.query_params.get('file_name')  # اسم الملف الذي سيتم رفعه
-        # file_type = request.query_params.get('file_type')  # اسم الملف الذي سيتم رفعه
-
-        try:
-            # توليد رابط موقّع
-            presigned_url = s3_client.generate_presigned_url(
-                'put_object',
-                Params={
-                    'Bucket': bucket_name,
-                    'Key': object_name,
-                    # "ContentType": "image/webp",
-                    # "conditions": [{"Content-Type": "image/webp"}]
-
-                },
-                ExpiresIn=3600  # صلاحية الرابط لمدة ساعة
-            )
-            return Response({"url": presigned_url}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class UserView(ModelViewSetIndividual):
-    queryset = User.objects.all()
-    serializer_class = UserInfoSer
-    permission_classes = [IsOwnerOrReadOnly]
-    http_method_names = ['get']
-    lookup_field = "username"
-    search_fields = ["first_name", "email", "phone"]
-
-    @action(detail=True, methods=['get'],
-            url_path='files_category', url_name='files_category'
-            )
-    def get_files_category(self, request, username=None):
-        user = self.get_object()
-        if "categories__id" in request.query_params:
-            categories = CategoryModel.objects.filter(user=user, id=request.query_params.get("categories__id"))
-        else:
-            categories = CategoryModel.objects.filter(user=user)
-        queryset = ProjectFilesModel.objects.filter(categories__in=categories)
-        page = self.paginate_queryset(queryset)
-        self.serializer_class = ProjectFilesSerializer
-        if page is not None:
-            serializer = ProjectFilesSerializer(page, many=True, context={"request": request})
-            data = self.get_paginated_response(serializer.data).data
-            data['status'] = True
-            data['message'] = _("all is done")
-            return Response(data)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            "status": True,
-            "results": serializer.data
-        })
 

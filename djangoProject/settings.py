@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +26,8 @@ SECRET_KEY = 'django-insecure-$v9dq%9+ibn^p7as7=+py!7y-wwzlm($%h&0c^82bbk(ex6*^3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
 
 
 # Application definition
@@ -37,9 +39,36 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    "django_filters",
+    "courses",
+    "authentication",
 ]
 
+
+
+# Looking to send emails in production? Check out our Email API/SMTP product!
+EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
+EMAIL_HOST_USER = '0650efe3947ef1'
+EMAIL_HOST_PASSWORD = 'a94bc011b36923'
+EMAIL_PORT = '2525'
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+#EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend"
+EMAIL_PORT = 587  # Port for TLS, or 465 for SSL
+EMAIL_USE_TLS = False  # Use True if you're using TLS
+EMAIL_USE_SSL: True
+
+AUTH_USER_MODEL = 'courses.User'
+
+LANGUAGES = [
+    ('en', 'English'),
+    ('ar', 'Arabic'),
+]
+
+
 MIDDLEWARE = [
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,6 +99,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'djangoProject.wsgi.application'
 
+MEDIA_URL='/media/'
+MEDIA_ROOT= BASE_DIR/ 'media'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
@@ -80,6 +111,10 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+STRIPE_PUBLISHABLE_KEY = "pk_test_51QQ3zeR9eJp5XpitfKBwIweuke1sofjVhVQMRmklYeQgneRJeBwsw24dql2AzfT6bWa8WEpCZzNZzFR7LFdmerUy00Rp3EzXJ8"
+STRIPE_SECRET_KEY = "sk_test_51QQ3zeR9eJp5XpitaYYurvww6ccGsS9LTKdXdY2ObvDhteJOsC3C8riE92Pt3PlA1NY0uAR0mhmJS9O1j3F4wPmN00ytPXEaAz"
+
 
 
 # Password validation
@@ -104,15 +139,48 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ar'
 
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
+USE_I18N= True
+
 USE_TZ = True
 
+# Available languages
 
+
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'locale'),
+]
+
+
+REST_FRAMEWORK = {
+   
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+
+    ],
+    
+    
+    
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     'rest_framework.permissions.AllowAny',
+    #     # 'meals.permission.IsAdminOrReadOnly',
+    #     # "rest_framework_api_key.permissions.HasAPIKey",
+    #     'rest_framework.permissions.IsAuthenticated',
+
+    # ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+      'PAGE_SIZE':5,
+
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'TOKEN_EXPIRE_SECONDS': 6000
+
+}
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 

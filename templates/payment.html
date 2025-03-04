@@ -1,0 +1,11 @@
+<script src="https://js.stripe.com/v3/"></script>
+<div id="payment-form">
+    <h2>Buy {{ lesson_title }}</h2>
+    <button id="pay-button">Pay Now</button>
+</div>
+<script>
+    const stripe = Stripe('{{ stripe_publishable_key }}');
+    document.getElementById('pay-button').addEventListener('click', function () {
+        // Logic to handle payment through Stripe
+    });
+</script>

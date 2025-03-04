@@ -3,11 +3,12 @@ from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser, BaseUserManager, PermissionsMixin
 )
-from datetime import datetime, timedelta
+from datetime import  timedelta
 from rest_framework.authtoken.models import Token
-import random
-import string
+
 from django.utils.translation import gettext_lazy as _
+from django.utils.timezone import now
+from django.db.utils import IntegrityError
 
 # Create your models here
 
@@ -60,6 +61,8 @@ class User(AbstractBaseUser,PermissionsMixin):
     is_staff=models.BooleanField(default=False)
     created_at=models.DateTimeField(auto_now_add=True)
     updated_at=models.DateTimeField(auto_now=True)
+    reset_password_token = models.CharField(max_length=50,default="",blank=True)
+    reset_password_expire = models.DateTimeField(null=True,blank=True)
     
     
     
@@ -78,10 +81,14 @@ class User(AbstractBaseUser,PermissionsMixin):
 
 class YearsModel(models.Model):
     year = models.CharField(max_length=4)
-
     def __str__(self):
         return self.year
-
+    class Meta:
+        verbose_name= 'Year'
+   
+    
+            
+        
 
 class TeachersModel(models.Model):
     name = models.CharField(max_length=100)
@@ -90,8 +97,14 @@ class TeachersModel(models.Model):
     created = models.DateTimeField(auto_now_add=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True)
 
+    
+            
+            
     def __str__(self):
         return self.name
+    
+    class Meta:
+        verbose_name= 'Teacher'
     
 
 
@@ -102,44 +115,81 @@ class CoursesModel(models.Model):
     image = models.TextField()
     created = models.DateTimeField(auto_now_add=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True)
-    teacher = models.ForeignKey(TeachersModel, on_delete=models.CASCADE, related_name="courses")
-    year = models.ForeignKey(YearsModel, on_delete=models.CASCADE, related_name="courses")
+    teacher = models.ForeignKey(TeachersModel, on_delete=models.SET_NULL,null=True, related_name="courses")
+    year = models.ForeignKey(YearsModel, on_delete=models.SET_NULL,null=True, related_name="courses")
+
+    
 
     def __str__(self):
         return self.title
+    class Meta:
+        verbose_name= 'Course'
 
 
-class LessonsModel(models.Model):
+class LessonsModel2(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
-    video = models.FileField(upload_to="lessons/")
+    video = models.FileField(upload_to="lessons/",blank=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True)
     course = models.ForeignKey(CoursesModel, on_delete=models.CASCADE, related_name="lessons")
-    price=models.IntegerField(null=True)
-    button=models.URLField(null=True,max_length=500,verbose_name=f"Click here to buy {title}")
+    price = models.IntegerField(null=True)
+    button = models.URLField(null=True, max_length=500, verbose_name="Click here to buy",blank=True)
+    users = models.ManyToManyField(User, related_name="lessons", blank=True)  # Users who have access
+    
+    
+    
+    class Meta:
+        verbose_name= 'Lesson'
 
     def __str__(self):
         return self.title
 
+class AccessLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="lesson_access")
+    lesson = models.ForeignKey(LessonsModel2, on_delete=models.CASCADE, related_name="access_logs")
+    first_access_time = models.DateTimeField(auto_now_add=True)
+
+    def has_expired(self):
+        return now() >= self.first_access_time + timedelta(hours=2) 
+
+    def remaining_time(self):
+        expiration_time = self.first_access_time + timedelta(hours=2)
+        remaining = expiration_time - now()
+        return max(remaining.total_seconds(), 0)
+    
+    
 
 class BannersModel(models.Model):
     image = models.ImageField(upload_to="banners/")
+    class Meta:
+        verbose_name= 'Banner'
+        
+    
 
 
 class MajorsModel(models.Model):
     major=models.CharField(max_length=30,null=True)
+    class Meta:
+        verbose_name= 'Major'
+        
+    
     
     
 class StudentModel(models.Model):
     name = models.CharField(max_length=100,null=True)
     image = models.TextField(max_length=50,null=True)
     description = models.TextField(max_length=500,null=True)
-    major=models.ForeignKey(MajorsModel,on_delete=models.PROTECT,related_name='student',null=True)
-    year=models.ForeignKey(YearsModel,on_delete=models.PROTECT,related_name='student',null=True)
+    major = models.ForeignKey(MajorsModel, on_delete=models.PROTECT, related_name='student', default=1)
+    year=models.ForeignKey(YearsModel,on_delete=models.PROTECT,related_name='student',default=1)
     
     created = models.DateTimeField(auto_now_add=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True)
+    class Meta:
+        verbose_name= 'Student'
+        
+    
+    
 
     def __str__(self):
         return self.name
@@ -149,13 +199,16 @@ class StudentModel(models.Model):
 
 
 class CodeModel(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET, related_name="codes",null=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name="codes",null=True)
     code = models.CharField(max_length=100)
     used = models.BooleanField(default=False)
-    video = models.ForeignKey(LessonsModel, on_delete=models.CASCADE, related_name="codes")
+    video = models.ForeignKey(LessonsModel2, on_delete=models.CASCADE, related_name="codes")
     created = models.DateTimeField(auto_now_add=True, null=True)
     updated = models.DateTimeField(auto_now=True, null=True)
     expire = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        verbose_name= 'Code'
 
     def __str__(self):
         return self.code
